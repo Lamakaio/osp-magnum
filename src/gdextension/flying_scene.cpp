@@ -7,6 +7,10 @@
 #include "spdlog/pattern_formatter.h"
 #include "spdlog/sinks/callback_sink.h"
 
+#include <godot_cpp/classes/editor_interface.hpp>
+#include <godot_cpp/classes/editor_plugin.hpp>
+#include <godot_cpp/classes/editor_settings.hpp>
+#include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/global_constants.hpp>
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/input_event.hpp>
@@ -79,10 +83,10 @@ using namespace ospgdext;
 void FlyingScene::_bind_methods() {
   FlyingScene::register_arg<String, "scene">(Variant::STRING);
   FlyingScene::register_arg<NodePath, "light_node">(Variant::NODE_PATH);
-  ClassDB::bind_method(D_METHOD("get_mat"), &FlyingScene::get_mat);
-  ClassDB::bind_method(D_METHOD("set_mat", "mat"), &FlyingScene::set_mat);
-  ClassDB::add_property("FlyingScene", PropertyInfo(Variant::OBJECT, "mat", PROPERTY_HINT_RESOURCE_TYPE, "Material"),
-                                "set_mat", "get_mat");
+  FlyingScene::register_res_arg<Material, "mat_base", "Material">();
+  FlyingScene::register_res_arg<Material, "mat_metal", "Material">();
+  FlyingScene::register_res_arg<Material, "mat_plume", "Material">();
+  FlyingScene::register_res_arg<Material, "mat_dbg", "Material">();
 }
 
 FlyingScene::FlyingScene() {
@@ -124,6 +128,7 @@ protected:
 
 void FlyingScene::_enter_tree() // practically main()?
 {
+  if (Engine::get_singleton()->is_editor_hint()) {return;}
   auto pSink = std::make_shared<GodotLogSink>();
   pSink->set_pattern("[%T.%e] [%n] [%^%l%$] [%s:%#] %v");
   g_mainThreadLogger = std::make_shared<spdlog::logger>("main-thread", pSink);
@@ -179,7 +184,7 @@ void FlyingScene::_enter_tree() // practically main()?
 void FlyingScene::_ready() {
   // Setup godot-related stuff based on whatever features the scenario loaded
   // into the framework
-
+  if (Engine::get_singleton()->is_editor_hint()) {return;}
   setup_app();
 }
 
@@ -188,6 +193,7 @@ void FlyingScene::_physics_process(double delta) {
 }
 
 void FlyingScene::_process(double delta) {
+  if (Engine::get_singleton()->is_editor_hint()) {return;}
   auto const mainApp = m_framework.get_interface<FIMainApp>(m_mainContext);
   auto const &appCtxs =
       m_framework.data_get<AppContexts>(mainApp.di.appContexts);
@@ -213,7 +219,11 @@ void FlyingScene::_process(double delta) {
   }
 }
 
-void FlyingScene::_exit_tree() { destroy_app(); }
+void FlyingScene::_exit_tree() 
+{ 
+  if (Engine::get_singleton()->is_editor_hint()) {return;}
+  destroy_app(); 
+}
 
 void FlyingScene::drive_scene_cycle(UpdateParams p) {
   Framework &rFW = m_framework;
@@ -361,7 +371,10 @@ void FlyingScene::load_a_bunch_of_stuff() {
   add_mesh_quick("grid64solid", Primitives::grid3DSolid({63, 63}));
 
   //loading Godot resources
-  m_mats.push_back(m_mat->get_rid());
+  m_mats.push_back(get_res<Material, "mat_base">()->get_rid());
+  m_mats.push_back(get_res<Material, "mat_metal">()->get_rid());
+  m_mats.push_back(get_res<Material, "mat_plume">()->get_rid());
+  m_mats.push_back(get_res<Material, "mat_dbg">()->get_rid());
 
   OSP_LOG_INFO("Resource loading complete");
 }
@@ -394,22 +407,26 @@ ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
     auto &rRenderGd =
         rFW.data_get<draw::RenderGd>(godot.di.render);
 
-    MaterialId const matFlat = rScnRender.m_materialIds.create();
+    MaterialId const matFlat  = rScnRender.m_materialIds.create();
     MaterialId const matMetal = rScnRender.m_materialIds.create();
+    MaterialId const matPlume = rScnRender.m_materialIds.create();
+    MaterialId const matDbg   = rScnRender.m_materialIds.create();
     rScnRender.m_materials.resize(rScnRender.m_materialIds.size());
     rScnRenderGd.m_godotMats.resize(rScnRender.m_materialIds.size());
     rScnRenderGd.m_godotMats[matFlat] = rRenderGd.m_mats[0];
-    rScnRenderGd.m_godotMats[matMetal] = rRenderGd.m_mats[0];
+    rScnRenderGd.m_godotMats[matMetal] = rRenderGd.m_mats[1];
+    rScnRenderGd.m_godotMats[matPlume] = rRenderGd.m_mats[2];
+    rScnRenderGd.m_godotMats[matDbg] = rRenderGd.m_mats[3];
 
 
     scnRdrCB.add_feature(ftrCameraControlGD);
 
     scnRdrCB.add_feature(ftrThrower);
     scnRdrCB.add_feature(ftrPhysicsShapesDraw, matFlat);
-    scnRdrCB.add_feature(ftrCursor, TplPkgIdMaterialId{defaultPkg, matFlat});
+    scnRdrCB.add_feature(ftrCursor, TplPkgIdMaterialId{defaultPkg, matDbg});
 
     if (rFW.get_interface_id<FIPrefabs>(sceneCtx).has_value()) {
-      scnRdrCB.add_feature(ftrPrefabDraw, matFlat);
+      scnRdrCB.add_feature(ftrPrefabDraw, matMetal);
     }
 
     if (rFW.get_interface_id<FIVehicleSpawn>(sceneCtx).has_value()) {
@@ -422,7 +439,7 @@ ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
 
     if (rFW.get_interface_id<FIRocketsJolt>(sceneCtx).has_value()) {
       scnRdrCB.add_feature(ftrMagicRocketThrustIndicator,
-                           TplPkgIdMaterialId{defaultPkg, matFlat});
+                           TplPkgIdMaterialId{defaultPkg, matPlume});
     }
   }
 

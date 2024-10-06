@@ -2,9 +2,11 @@
 
 #include <algorithm>
 #include <godot_cpp/classes/class_db_singleton.hpp>
+#include <godot_cpp/classes/global_constants.hpp>
 #include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/node3d.hpp>
+#include <godot_cpp/classes/resource.hpp>
 #include <godot_cpp/classes/thread.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/variant.hpp>
@@ -37,11 +39,11 @@ private:
         bool render;
     };
 
-    std::map<const char*, void*> m_argmap;
+    std::map<const char*, void*>         m_argmap;
+    std::map<const char*, Ref<Resource>> m_resmap;
 
     RID               m_scenario;
     RID               m_viewport;
-    Ref<Material>     m_mat;
     std::vector<RID>  m_mats;
     Node3D*           m_light;
 
@@ -136,6 +138,17 @@ public:
                                 set_name.value, get_name.value);
     }
 
+    template<class T, StringLiteral S, StringLiteral TS>
+    static void register_res_arg() {
+        constexpr size_t N = S.size();
+        constexpr StringLiteral<N+4> get_name = concat<5, N, "get_", S>();
+        constexpr StringLiteral<N+4> set_name = concat<5, N, "set_", S>();
+        ClassDB::bind_method(D_METHOD(get_name.value), &FlyingScene::get_res<T, S>);
+        ClassDB::bind_method(D_METHOD(set_name.value, S.value), &FlyingScene::set_res<T, S>);
+        ClassDB::add_property("FlyingScene", PropertyInfo(Variant::OBJECT, S.value, PROPERTY_HINT_RESOURCE_TYPE, TS.value),
+                                set_name.value, get_name.value);
+    }
+
     template<class T, StringLiteral S>
     const T &get_() {
         if (!m_argmap.contains(S.value)) 
@@ -154,12 +167,18 @@ public:
         * (T*) m_argmap[S.value] = in;
     }
 
-    Ref<Material> get_mat() {
-        return m_mat;
+    template<class T, StringLiteral S>
+    Ref<T> get_res() {
+        if (!m_resmap.contains(S.value)) 
+        {
+            return Ref<T>(nullptr);
+        }
+        return m_resmap[S.value];
     }
 
-    void set_mat(Ref<Material> in) {
-        m_mat = in;
+    template<class T, StringLiteral S>
+    void set_res(Ref<T> in) {
+        m_resmap[S.value] = in;
     }
 
 //    inline void set_user_input(UserInputHandler *pUserInput)

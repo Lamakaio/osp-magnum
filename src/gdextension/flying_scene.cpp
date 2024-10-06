@@ -12,16 +12,22 @@
 #include <godot_cpp/classes/input_event_key.hpp>
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
+#include <godot_cpp/classes/light3d.hpp>
+#include <godot_cpp/classes/node.hpp>
+#include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/rendering_device.hpp>
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
+#include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/world3d.hpp>
 #include <godot_cpp/core/class_db.hpp>
+#include <godot_cpp/variant/node_path.hpp>
 #include <godot_cpp/variant/transform3d.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/variant/variant.hpp>
 #include <godot_cpp/variant/vector2.hpp>
 
 #include <adera_app/application.h>
@@ -68,10 +74,8 @@ using namespace osp::fw;
 using namespace ospgdext;
 
 void FlyingScene::_bind_methods() {
-  ClassDB::bind_method(D_METHOD("get_scene"), &FlyingScene::get_scene);
-  ClassDB::bind_method(D_METHOD("set_scene", "scene"), &FlyingScene::set_scene);
-  ClassDB::add_property("FlyingScene", PropertyInfo(Variant::STRING, "scene"),
-                        "set_scene", "get_scene");
+  FlyingScene::register_arg<String, "scene">(Variant::STRING);
+  FlyingScene::register_arg<NodePath, "light_node">(Variant::NODE_PATH);
 }
 
 FlyingScene::FlyingScene() {
@@ -140,21 +144,18 @@ void FlyingScene::_enter_tree() // practically main()?
   m_scenario = get_world_3d()->get_scenario();
   m_viewport = get_viewport()->get_viewport_rid();
 
-  m_lightInstance = renderingServer->instance_create();
-  renderingServer->instance_set_scenario(m_lightInstance, m_scenario);
+  m_light = ((Node3D*) get_node_or_null(get_<NodePath, "light_node">()));
 
-  m_light = renderingServer->directional_light_create();
-  renderingServer->light_set_distance_fade(m_light, false, 0., 0., 0.);
-  renderingServer->light_set_shadow(m_light, false);
-  renderingServer->instance_set_base(m_lightInstance, m_light);
+  //renderingServer->(light_directional_set_blend_splits(m_light, true);
+  //m_lightInstance = m_light;//renderingServer->instance_create2(m_light, m_scenario);
 
   Transform3D lform =
-      Transform3D(Basis().rotated(Vector3(1, 1, 1), -1.), Vector3(0., 0., 0.));
-  renderingServer->instance_set_transform(m_lightInstance, lform);
+      Transform3D(Basis().rotated(Vector3(1, 1, 1), 1.), Vector3(0., 0., 0.));
+  m_light->set_transform(lform);
 
   OSP_LOG_INFO("Created viewport, scenario, and light");
 
-  CharString const utf8 = m_scene.utf8();
+  CharString const utf8 = get_<String, "scene">().utf8();
   OSP_LOG_INFO("Scene is {}", utf8.ptr());
   auto const it = scenarios().find("vehicles" /*m_scene.utf8().get_data()*/);
   if (it == std::end(scenarios())) {
@@ -290,8 +291,8 @@ void FlyingScene::clear_resource_owners() {
 
   godot::RenderingServer *rs = godot::RenderingServer::get_singleton();
   rs->free_rid(m_lightInstance);
-  rs->free_rid(m_light);
-  m_light = {};
+  //rs->free_rid(m_light);
+  //m_light = {};
   m_lightInstance = {};
   m_scenario = {};
   m_viewport = {};
@@ -582,7 +583,3 @@ void FlyingScene::destroy_app() {
   //    auto leak_tp = new TestApp;
   //    std::swap(*leak_tp, m_testApp);*/
 }
-
-void FlyingScene::set_scene(String const &scene) { m_scene = scene; }
-
-String const &FlyingScene::get_scene() const { return m_scene; }

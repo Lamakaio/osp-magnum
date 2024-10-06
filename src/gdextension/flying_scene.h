@@ -1,9 +1,13 @@
 #pragma once
 
+#include <algorithm>
 #include <godot_cpp/classes/class_db_singleton.hpp>
 #include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/thread.hpp>
+#include <godot_cpp/variant/string.hpp>
+#include <godot_cpp/variant/variant.hpp>
+#include <map>
 #include <sstream>
 
 #include <adera_app/application.h>
@@ -31,10 +35,12 @@ private:
         bool render;
     };
 
+    std::map<const char*, void*> m_argmap;
+
     RID               m_scenario;
     RID               m_viewport;
     RID               m_lightInstance;
-    RID               m_light;
+    Node3D*           m_light;
 
     //TestApp           m_testApp;
     //adera::MainLoopControl  *m_mainLoopCtrl;
@@ -44,8 +50,6 @@ private:
     std::stringstream m_dbgStream;
     std::stringstream m_errStream;
     std::stringstream m_warnStream;
-
-    String            m_scene;
 
     ExecutorType      m_executor;
     //UserInputHandler  m_userInput;
@@ -83,9 +87,6 @@ public:
     void              _process(double delta) override;
     void              _input(const Ref<InputEvent> &input) override;
 
-    void              set_scene(String const &scene);
-    String const     &get_scene() const;
-
     inline godot::RID get_main_scenario()
     {
         return m_scenario;
@@ -94,6 +95,56 @@ public:
     {
         return m_viewport;
     };
+    //some template black magic to add arguments easily
+    //Constexpr string
+    template<size_t N>
+    struct StringLiteral {
+        [[nodiscard]] constexpr size_t size() const {return N;};
+        constexpr StringLiteral() = default;
+        constexpr StringLiteral(const char (&str)[N]) {         
+        std::copy_n(str, N, value); }
+        char value[N];
+        auto operator<=>(const StringLiteral&) const = default;
+        bool operator==(const StringLiteral&) const  = default;
+    };
+
+    //constexpr concat of string literals
+    template<size_t N, size_t P, StringLiteral<N> S1, StringLiteral<P> S2>
+    static constexpr StringLiteral<N+P-1> concat() {
+        StringLiteral<N+P-1> ret;
+        std::copy_n(S1.value, N-1, ret.value);
+        std::copy_n(S2.value, P, &ret.value[N-1]);
+        return ret;
+    }
+
+    template<class T, StringLiteral S>
+    static void register_arg(Variant::Type gd_t) {
+        constexpr size_t N = S.size();
+        constexpr StringLiteral<N+4> get_name = concat<5, N, "get_", S>();
+        constexpr StringLiteral<N+4> set_name = concat<5, N, "set_", S>();
+        ClassDB::bind_method(D_METHOD(get_name.value), &FlyingScene::get_<T, S>);
+        ClassDB::bind_method(D_METHOD(set_name.value, S.value), &FlyingScene::set_<T, S>);
+        ClassDB::add_property("FlyingScene", PropertyInfo(gd_t, S.value),
+                                set_name.value, get_name.value);
+    }
+
+    template<class T, StringLiteral S>
+    const T &get_() {
+        if (!m_argmap.contains(S.value)) 
+        {
+            m_argmap[S.value] = new T;
+        }
+        return * (T*) m_argmap[S.value];
+    }
+
+    template<class T, StringLiteral S>
+    void set_(const T& in) {
+        if (!m_argmap.contains(S.value)) 
+        {
+            m_argmap[S.value] = new T;
+        }
+        * (T*) m_argmap[S.value] = in;
+    }
 
 //    inline void set_user_input(UserInputHandler *pUserInput)
 //    {

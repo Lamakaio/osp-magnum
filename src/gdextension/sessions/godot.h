@@ -50,7 +50,7 @@ extern osp::fw::FeatureDef const ftrGodotScene;
 
 extern osp::fw::FeatureDef const ftrCameraControlGD;
 
-void sync_godot_ent(draw::DrawEnt ent, draw::ACtxSceneRender &rScnRender, draw::ACtxSceneRenderGd &rScnRenderGd, draw::RenderGd &rRenderGd) noexcept;
+void sync_godot_ent(draw::DrawEnt ent, draw::ACtxSceneRender &rScnRender, draw::ACtxSceneRenderGd &rScnRenderGd, draw::RenderGd &rRenderGd, godot::RID rMat) noexcept;
 
 } // namespace ospgdext
 

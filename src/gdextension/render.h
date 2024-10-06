@@ -24,12 +24,14 @@
  */
 #pragma once
 
+#include "osp/core/id_map.h"
 #include "osp/drawing/drawing.h"
 #include <Magnum/Trade/ImageData.h>
 #include <Magnum/Trade/MeshData.h>
 #include <godot_cpp/variant/rid.hpp>
 #include <longeron/id_management/registry_stl.hpp>
 #include <osp/drawing/drawing_fn.h>
+#include <vector>
 
 namespace osp::draw
 {
@@ -80,6 +82,7 @@ struct RenderGd
     // godot resources
     godot::RID scenario;
     godot::RID viewport;
+    std::vector<godot::RID> m_mats;
 };
 
 struct ACompTexGd
@@ -97,6 +100,7 @@ struct ACompMeshGd
 using MeshGdEntStorage_t     = KeyedVec<DrawEnt, ACompMeshGd>;
 using TexGdEntStorage_t      = KeyedVec<DrawEnt, ACompTexGd>;
 using InstanceGdEntStorage_t = KeyedVec<DrawEnt, godot::RID>;
+using MaterialGdEntStorage_t = KeyedVec<DrawEnt, godot::RID>;
 
 /**
  * @brief OpenGL specific rendering components for rendering a scene
@@ -106,8 +110,10 @@ struct ACtxSceneRenderGd
     MeshGdEntStorage_t     m_meshId;
     TexGdEntStorage_t      m_diffuseTexId;
     InstanceGdEntStorage_t m_instanceId;
+    MaterialGdEntStorage_t m_materialId;
     DrawEntSet_t           m_render;
     godot::RID             m_scenario;
+    KeyedVec<MaterialId, godot::RID> m_godotMats;
 
     void clear_resource_owners();
 };

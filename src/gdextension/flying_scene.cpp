@@ -1,6 +1,7 @@
 #include "flying_scene.h"
 
 #include "feature_interfaces.h"
+#include "render.h"
 #include "scenarios.h"
 #include "sessions/godot.h"
 #include "spdlog/pattern_formatter.h"
@@ -13,6 +14,7 @@
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
 #include <godot_cpp/classes/input_event_mouse_motion.hpp>
 #include <godot_cpp/classes/light3d.hpp>
+#include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/rendering_device.hpp>
@@ -20,6 +22,7 @@
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
+#include <godot_cpp/classes/standard_material3d.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/world3d.hpp>
@@ -76,6 +79,10 @@ using namespace ospgdext;
 void FlyingScene::_bind_methods() {
   FlyingScene::register_arg<String, "scene">(Variant::STRING);
   FlyingScene::register_arg<NodePath, "light_node">(Variant::NODE_PATH);
+  ClassDB::bind_method(D_METHOD("get_mat"), &FlyingScene::get_mat);
+  ClassDB::bind_method(D_METHOD("set_mat", "mat"), &FlyingScene::set_mat);
+  ClassDB::add_property("FlyingScene", PropertyInfo(Variant::OBJECT, "mat", PROPERTY_HINT_RESOURCE_TYPE, "Material"),
+                                "set_mat", "get_mat");
 }
 
 FlyingScene::FlyingScene() {
@@ -290,10 +297,6 @@ void FlyingScene::clear_resource_owners() {
   };
 
   godot::RenderingServer *rs = godot::RenderingServer::get_singleton();
-  rs->free_rid(m_lightInstance);
-  //rs->free_rid(m_light);
-  //m_light = {};
-  m_lightInstance = {};
   m_scenario = {};
   m_viewport = {};
 }
@@ -357,6 +360,9 @@ void FlyingScene::load_a_bunch_of_stuff() {
   add_mesh_quick("cone", std::move(cone));
   add_mesh_quick("grid64solid", Primitives::grid3DSolid({63, 63}));
 
+  //loading Godot resources
+  m_mats.push_back(m_mat->get_rid());
+
   OSP_LOG_INFO("Resource loading complete");
 }
 
@@ -382,8 +388,19 @@ ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
     auto &rScnRender =
         rFW.data_get<draw::ACtxSceneRender>(scnRender.di.scnRender);
 
+    auto scnRenderGd = rFW.get_interface<FIGodotScene>(scnRdrCtx);
+    auto &rScnRenderGd =
+        rFW.data_get<draw::ACtxSceneRenderGd>(scnRenderGd.di.scnRenderGd);
+    auto &rRenderGd =
+        rFW.data_get<draw::RenderGd>(godot.di.render);
+
     MaterialId const matFlat = rScnRender.m_materialIds.create();
+    MaterialId const matMetal = rScnRender.m_materialIds.create();
     rScnRender.m_materials.resize(rScnRender.m_materialIds.size());
+    rScnRenderGd.m_godotMats.resize(rScnRender.m_materialIds.size());
+    rScnRenderGd.m_godotMats[matFlat] = rRenderGd.m_mats[0];
+    rScnRenderGd.m_godotMats[matMetal] = rRenderGd.m_mats[0];
+
 
     scnRdrCB.add_feature(ftrCameraControlGD);
 

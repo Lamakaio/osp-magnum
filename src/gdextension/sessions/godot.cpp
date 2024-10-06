@@ -98,6 +98,7 @@ osp::fw::FeatureDef const ftrGodot = feature_def("Godot", [] (
 
     rRenderGd.scenario = pMainApp->get_main_scenario();
     rRenderGd.viewport = pMainApp->get_main_viewport();
+    rRenderGd.m_mats   = pMainApp->get_godot_mats();
     rFB.task()
         .name("Clean up renderer")
         .run_on({ cleanup.pl.cleanup(Run_) })
@@ -148,6 +149,7 @@ osp::fw::FeatureDef const ftrGodotScene = feature_def("GodotScene", [] (
             rScnRenderGd.m_diffuseTexId.resize(capacity);
             rScnRenderGd.m_meshId.resize(capacity);
             rScnRenderGd.m_instanceId.resize(capacity);
+            rScnRenderGd.m_materialId.resize(capacity);
             rScnRenderGd.m_render.resize(capacity);
         });
 
@@ -280,10 +282,12 @@ osp::fw::FeatureDef const ftrGodotScene = feature_def("GodotScene", [] (
         .func([](draw::ACtxSceneRender   &rScnRender,
                  draw::RenderGd          &rRenderGd,
                  draw::ACtxSceneRenderGd &rScnRenderGd) noexcept {
-            for (DrawEnt const& ent : rScnRenderGd.m_render) 
-            {
-                sync_godot_ent(ent, rScnRender, rScnRenderGd, rRenderGd);
-            }
+                for (DrawEnt const& ent : rScnRenderGd.m_render) 
+                {
+                    godot::RID &rMat = rScnRenderGd.m_materialId[ent];
+                    sync_godot_ent(ent, rScnRender, rScnRenderGd, rRenderGd, rMat);
+                }
+            
         });
 
     rFB.task()
@@ -323,9 +327,14 @@ osp::fw::FeatureDef const ftrGodotScene = feature_def("GodotScene", [] (
                  ACtxSceneRenderGd &rScnRenderGd, 
                  RenderGd          &rRenderGd) noexcept {
                 
-            for (Material const &rMat : rScnRender.m_materials) 
+            for (MaterialId const &rMatId : rScnRender.m_materialIds) 
             {
-                rScnRenderGd.m_render.insert(rMat.m_dirty.begin(), rMat.m_dirty.end());
+                auto &rMatsDirty = rScnRender.m_materials[rMatId].m_dirty;
+                rScnRenderGd.m_render.insert(rMatsDirty.begin(), rMatsDirty.end());
+                for (auto ent: rMatsDirty) 
+                {
+                    rScnRenderGd.m_materialId[ent] = rScnRenderGd.m_godotMats[rMatId];
+                }
             }
         });
 
@@ -357,7 +366,7 @@ osp::fw::FeatureDef const ftrGodotScene = feature_def("GodotScene", [] (
         });
 }); // ftrGodotScene
 
-void sync_godot_ent(DrawEnt ent, ACtxSceneRender &rScnRender, ACtxSceneRenderGd &rScnRenderGd, RenderGd &rRenderGd) noexcept
+void sync_godot_ent(DrawEnt ent, ACtxSceneRender &rScnRender, ACtxSceneRenderGd &rScnRenderGd, RenderGd &rRenderGd, godot::RID rMat) noexcept
 {
     // Collect uniform information
     Matrix4 const &drawTf    = rScnRender.m_drawTransform[ent];
@@ -388,27 +397,25 @@ void sync_godot_ent(DrawEnt ent, ACtxSceneRender &rScnRender, ACtxSceneRenderGd 
         return;
     }
     godot::RID     rMesh     = rRenderGd.m_meshGd.get(meshId);
-    godot::RID     material  = rs->mesh_surface_get_material(rMesh, 0);
     // create the material if it does not already exists
-    if ( ! material.is_valid() )
+    if ( ! rMat.is_valid() )
     {
-        material = rs->material_create();
-        rs->mesh_surface_set_material(rMesh, 0, material);
-    }
-    // test if the mesh is textured or not.
-    if ( rScnRenderGd.m_diffuseTexId[ent].m_gdId != lgrn::id_null<TexGdId>() )
-    {
-        TexGdId const texGdId = rScnRenderGd.m_diffuseTexId[ent].m_gdId;
-        godot::RID    rTex    = rRenderGd.m_texGd.get(texGdId);
-        rs->material_set_param(material, "albedo_texture", rTex);
-    }
+        rMat = rs->material_create();
+    
+        // test if the mesh is textured or not.
+        if ( rScnRenderGd.m_diffuseTexId[ent].m_gdId != lgrn::id_null<TexGdId>() )
+        {
+            TexGdId const texGdId = rScnRenderGd.m_diffuseTexId[ent].m_gdId;
+            godot::RID    rTex    = rRenderGd.m_texGd.get(texGdId);
+            rs->material_set_param(rMat, "albedo_texture", rTex);
+        }
 
-    // Set albdedo color
-    auto color = rScnRender.m_color[ent];
-    rs->material_set_param(
-        material, "albedo_color", godot::Color(1., 0., 0., 0.5));
-
-    rs->mesh_surface_set_material(rMesh, 0, material);
+        // Set albdedo color
+        auto color = rScnRender.m_color[ent];
+        rs->material_set_param(
+            rMat, "albedo_color", godot::Color(1., 0., 0., 0.5));    
+    }
+    rs->mesh_surface_set_material(rMesh, 0, rMat);
     rs->instance_set_base(rInstance, rMesh);
 
     auto         rot   = Magnum::Quaternion::fromMatrix(drawTf.rotation()).data();

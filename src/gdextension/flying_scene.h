@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <godot_cpp/classes/class_db_singleton.hpp>
 #include <godot_cpp/classes/input_event.hpp>
+#include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/thread.hpp>
 #include <godot_cpp/variant/string.hpp>
@@ -15,6 +16,7 @@
 #include <osp/framework/executor.h>
 #include <osp/framework/framework.h>
 #include <osp/util/UserInputHandler.h>
+#include <vector>
 
 namespace godot
 {
@@ -39,7 +41,8 @@ private:
 
     RID               m_scenario;
     RID               m_viewport;
-    RID               m_lightInstance;
+    Ref<Material>     m_mat;
+    std::vector<RID>  m_mats;
     Node3D*           m_light;
 
     //TestApp           m_testApp;
@@ -95,6 +98,11 @@ public:
     {
         return m_viewport;
     };
+
+    inline std::vector<godot::RID> get_godot_mats()
+    {
+        return m_mats;
+    };
     //some template black magic to add arguments easily
     //Constexpr string
     template<size_t N>
@@ -144,6 +152,14 @@ public:
             m_argmap[S.value] = new T;
         }
         * (T*) m_argmap[S.value] = in;
+    }
+
+    Ref<Material> get_mat() {
+        return m_mat;
+    }
+
+    void set_mat(Ref<Material> in) {
+        m_mat = in;
     }
 
 //    inline void set_user_input(UserInputHandler *pUserInput)

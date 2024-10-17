@@ -1,5 +1,4 @@
-#include "flying_scene.h"
-
+#include "testscene.h"
 #include "feature_interfaces.h"
 #include "render.h"
 #include "scenarios.h"
@@ -80,23 +79,24 @@ using namespace osp::draw;
 using namespace osp::fw;
 using namespace ospgdext;
 
-void FlyingScene::_bind_methods() {
-  FlyingScene::register_arg<String, "scene">(Variant::STRING);
-  FlyingScene::register_arg<NodePath, "light_node">(Variant::NODE_PATH);
-  FlyingScene::register_res_arg<Material, "mat_base", "Material">();
-  FlyingScene::register_res_arg<Material, "mat_metal", "Material">();
-  FlyingScene::register_res_arg<Material, "mat_plume", "Material">();
-  FlyingScene::register_res_arg<Material, "mat_dbg", "Material">();
+void GodotTestScene::_bind_methods() {
+
+  GodotTestScene::register_arg<NodePath, "light_node">();
+
+  GodotTestScene::register_res_arg<Material, "mat_base",  "Material">();
+  GodotTestScene::register_res_arg<Material, "mat_metal", "Material">();
+  GodotTestScene::register_res_arg<Material, "mat_plume", "Material">();
+  GodotTestScene::register_res_arg<Material, "mat_dbg",   "Material">();
 }
 
-FlyingScene::FlyingScene() {
+GodotTestScene::GodotTestScene(){
   // setup the Debug thingies
   new Corrade::Utility::Debug{&m_dbgStream};
   new Corrade::Utility::Warning{&m_warnStream};
   new Corrade::Utility::Error{&m_errStream};
 }
 
-FlyingScene::~FlyingScene() {
+GodotTestScene::~GodotTestScene() {
   // delete (ExecutorType *)m_pExecutor;
 }
 
@@ -126,7 +126,7 @@ protected:
   void flush_() override {}
 };
 
-void FlyingScene::_enter_tree() // practically main()?
+void GodotTestScene::_enter_tree() // practically main()?
 {
   if (Engine::get_singleton()->is_editor_hint()) {return;}
   auto pSink = std::make_shared<GodotLogSink>();
@@ -156,10 +156,8 @@ void FlyingScene::_enter_tree() // practically main()?
   m_scenario = get_world_3d()->get_scenario();
   m_viewport = get_viewport()->get_viewport_rid();
 
+  //FIXME : should really find a way to have a nice light from code ...
   m_light = ((Node3D*) get_node_or_null(get_<NodePath, "light_node">()));
-
-  //renderingServer->(light_directional_set_blend_splits(m_light, true);
-  //m_lightInstance = m_light;//renderingServer->instance_create2(m_light, m_scenario);
 
   Transform3D lform =
       Transform3D(Basis().rotated(Vector3(1, 1, 1), 1.), Vector3(0., 0., 0.));
@@ -167,32 +165,21 @@ void FlyingScene::_enter_tree() // practically main()?
 
   OSP_LOG_INFO("Created viewport, scenario, and light");
 
-  CharString const utf8 = get_<String, "scene">().utf8();
-  OSP_LOG_INFO("Scene is {}", utf8.ptr());
-  auto const it = scenarios().find("vehicles" /*m_scene.utf8().get_data()*/);
-  if (it == std::end(scenarios())) {
-    OSP_LOG_INFO("Unknown scene");
-    clear_resource_owners();
-    return;
-  }
-  ScenarioOption const &rSelectedScenario = it->second;
-
-  // Loads data into the framework; contains nothing godot-related
-  rSelectedScenario.loadFunc(m_framework, m_mainContext, m_defaultPkg);
+  
 }
 
-void FlyingScene::_ready() {
+void GodotTestScene::_ready() {
   // Setup godot-related stuff based on whatever features the scenario loaded
   // into the framework
   if (Engine::get_singleton()->is_editor_hint()) {return;}
   setup_app();
 }
 
-void FlyingScene::_physics_process(double delta) {
+void GodotTestScene::_physics_process(double delta) {
   // ospjolt::SysJolt::update_world() update the world
 }
 
-void FlyingScene::_process(double delta) {
+void GodotTestScene::_process(double delta) {
   if (Engine::get_singleton()->is_editor_hint()) {return;}
   auto const mainApp = m_framework.get_interface<FIMainApp>(m_mainContext);
   auto const &appCtxs =
@@ -219,13 +206,13 @@ void FlyingScene::_process(double delta) {
   }
 }
 
-void FlyingScene::_exit_tree() 
+void GodotTestScene::_exit_tree() 
 { 
   if (Engine::get_singleton()->is_editor_hint()) {return;}
   destroy_app(); 
 }
 
-void FlyingScene::drive_scene_cycle(UpdateParams p) {
+void GodotTestScene::drive_scene_cycle(UpdateParams p) {
   Framework &rFW = m_framework;
 
   auto const mainApp = rFW.get_interface<FIMainApp>(m_mainContext);
@@ -256,7 +243,7 @@ void FlyingScene::drive_scene_cycle(UpdateParams p) {
   m_executor.wait(m_framework);
 }
 
-void FlyingScene::run_context_cleanup(ContextId ctx) {
+void GodotTestScene::run_context_cleanup(ContextId ctx) {
   auto const cleanup = m_framework.get_interface<FICleanupContext>(ctx);
   if (cleanup.id.has_value()) {
     // Run cleanup pipeline for the window context
@@ -270,7 +257,7 @@ void FlyingScene::run_context_cleanup(ContextId ctx) {
   }
 }
 
-void FlyingScene::clear_resource_owners() {
+void GodotTestScene::clear_resource_owners() {
   using namespace osp::restypes;
 
   auto const mainApp = m_framework.get_interface<FIMainApp>(m_mainContext);
@@ -311,7 +298,7 @@ void FlyingScene::clear_resource_owners() {
   m_viewport = {};
 }
 
-void FlyingScene::load_a_bunch_of_stuff() {
+void GodotTestScene::load_a_bunch_of_stuff() {
   using namespace osp::restypes;
   using namespace Magnum;
   using Primitives::ConeFlag;
@@ -447,7 +434,7 @@ ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
   return scnRdrCtx;
 } // make_scene_renderer
 
-void FlyingScene::setup_app() {
+void GodotTestScene::setup_app() {
   // Setup Godot 'window application' renderer context
   // This is intended to stay alive as long as godot is open (forever), unlike
   // the scene renderer which is intended to be swapped out when the scene
@@ -459,7 +446,7 @@ void FlyingScene::setup_app() {
   ContextId const windowCtx = m_framework.m_contextIds.create();
   ContextBuilder windowCB{windowCtx, {m_mainContext, sceneCtx}, m_framework};
   windowCB.add_feature(adera::ftrWindowApp);
-  windowCB.add_feature(ftrGodot, entt::make_any<godot::FlyingScene *>(this));
+  windowCB.add_feature(ftrGodot, entt::make_any<godot::GodotTestScene *>(this));
   ContextBuilder::finalize(std::move(windowCB));
 
   OSP_LOG_INFO("Setup godot");
@@ -492,7 +479,7 @@ void FlyingScene::setup_app() {
                      .render = false});
 }
 
-void FlyingScene::draw_event() {
+void GodotTestScene::draw_event() {
   drive_scene_cycle({.deltaTimeIn = 1.0f / 60.0f,
                      .update = true,
                      .sceneUpdate = true,
@@ -501,7 +488,7 @@ void FlyingScene::draw_event() {
                      .render = true});
 }
 
-void FlyingScene::_input(const Ref<InputEvent> &input) {
+void GodotTestScene::_input(const Ref<InputEvent> &input) {
   auto const mainApp = m_framework.get_interface<FIMainApp>(m_mainContext);
   auto const &appCtxs =
       m_framework.data_get<AppContexts>(mainApp.di.appContexts);
@@ -575,7 +562,7 @@ void FlyingScene::_input(const Ref<InputEvent> &input) {
   }
 };
 
-void FlyingScene::destroy_app() {
+void GodotTestScene::destroy_app() {
   OSP_LOG_INFO("Destroy App");
 
   // Stops the pipeline loop

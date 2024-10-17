@@ -40,7 +40,6 @@
 #include <Magnum/Trade/ImageData.h>
 #include <Magnum/Trade/MeshData.h>
 #include <Magnum/Trade/TextureData.h>
-#include <algorithm>
 #include <cstdint>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/input_map.hpp>
@@ -213,10 +212,10 @@ void SysRenderGd::compile_resource_meshes(
         auto            primitive  = primitiveMToGd(meshData.primitive());
 
         godot::RenderingServer *rs = godot::RenderingServer::get_singleton();
-
-        godot::SurfaceTool      st;
+        godot::SurfaceTool*     st = memnew(godot::SurfaceTool);
+        
         // why are there two different PrimitiveType enums ?
-        st.begin(static_cast<godot::Mesh::PrimitiveType>(primitive));
+        st->begin(static_cast<godot::Mesh::PrimitiveType>(primitive));
 
         godot::RID mesh = rs->mesh_create();
 
@@ -232,27 +231,29 @@ void SysRenderGd::compile_resource_meshes(
             if (has_normals) 
             {
                 auto n = normals[i];
-                st.set_normal(godot::Vector3(n.x(), n.y(), n.z()));
+                st->set_normal(godot::Vector3(n.x(), n.y(), n.z()));
             }
             auto v = pos[i];
-            st.add_vertex(godot::Vector3(v.x(), v.y(), v.z()));
+            st->add_vertex(godot::Vector3(v.x(), v.y(), v.z()));
         }
 
         for (auto i = indices.end() - 1; i >= indices.begin(); --i) 
         {
-            st.add_index(static_cast<int32_t>(*i));
+            st->add_index(static_cast<int32_t>(*i));
         }
 
         if ( primitive == godot::RenderingServer::PRIMITIVE_TRIANGLES && !has_normals )
         {
-            st.generate_normals();    
+            st->generate_normals();    
         }
 
-        godot::Array meshArray = st.commit_to_arrays();
+        godot::Array meshArray = st->commit_to_arrays();
 
         rs->mesh_add_surface_from_arrays(mesh, primitive, meshArray);
 
         rRenderGd.m_meshGd.emplace(newId, mesh);
+
+        memfree(st);
     }
 }
 

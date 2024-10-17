@@ -1,5 +1,6 @@
 #pragma once
 
+#include "godot_utils.h"
 #include <algorithm>
 #include <godot_cpp/classes/class_db_singleton.hpp>
 #include <godot_cpp/classes/global_constants.hpp>
@@ -23,9 +24,9 @@
 namespace godot
 {
 using namespace osp::input;
-class FlyingScene : public Node3D
+class GameMainScene : public Node3D
 {
-    GDCLASS(FlyingScene, Node3D)
+    GDCLASS(GameMainScene, Node3D)
 
 private:
     using ExecutorType = osp::fw::SingleThreadedExecutor;
@@ -81,8 +82,8 @@ protected:
     static void _bind_methods();
 
 public:
-    FlyingScene();
-    ~FlyingScene();
+    GameMainScene();
+    ~GameMainScene();
 
     // void _process(double delta) override;
     void              _enter_tree() override;
@@ -106,35 +107,15 @@ public:
         return m_mats;
     };
     //some template black magic to add arguments easily
-    //Constexpr string
-    template<size_t N>
-    struct StringLiteral {
-        [[nodiscard]] constexpr size_t size() const {return N;};
-        constexpr StringLiteral() = default;
-        constexpr StringLiteral(const char (&str)[N]) {         
-        std::copy_n(str, N, value); }
-        char value[N];
-        auto operator<=>(const StringLiteral&) const = default;
-        bool operator==(const StringLiteral&) const  = default;
-    };
-
-    //constexpr concat of string literals
-    template<size_t N, size_t P, StringLiteral<N> S1, StringLiteral<P> S2>
-    static constexpr StringLiteral<N+P-1> concat() {
-        StringLiteral<N+P-1> ret;
-        std::copy_n(S1.value, N-1, ret.value);
-        std::copy_n(S2.value, P, &ret.value[N-1]);
-        return ret;
-    }
 
     template<class T, StringLiteral S>
-    static void register_arg(Variant::Type gd_t) {
+    static void register_arg() {
         constexpr size_t N = S.size();
         constexpr StringLiteral<N+4> get_name = concat<5, N, "get_", S>();
         constexpr StringLiteral<N+4> set_name = concat<5, N, "set_", S>();
-        ClassDB::bind_method(D_METHOD(get_name.value), &FlyingScene::get_<T, S>);
-        ClassDB::bind_method(D_METHOD(set_name.value, S.value), &FlyingScene::set_<T, S>);
-        ClassDB::add_property("FlyingScene", PropertyInfo(gd_t, S.value),
+        ClassDB::bind_method(D_METHOD(get_name.value), &GameMainScene::get_<T, S>);
+        ClassDB::bind_method(D_METHOD(set_name.value, S.value), &GameMainScene::set_<T, S>);
+        ClassDB::add_property("FlyingScene", PropertyInfo(get_gd_type<T>(), S.value),
                                 set_name.value, get_name.value);
     }
 
@@ -143,8 +124,8 @@ public:
         constexpr size_t N = S.size();
         constexpr StringLiteral<N+4> get_name = concat<5, N, "get_", S>();
         constexpr StringLiteral<N+4> set_name = concat<5, N, "set_", S>();
-        ClassDB::bind_method(D_METHOD(get_name.value), &FlyingScene::get_res<T, S>);
-        ClassDB::bind_method(D_METHOD(set_name.value, S.value), &FlyingScene::set_res<T, S>);
+        ClassDB::bind_method(D_METHOD(get_name.value), &GameMainScene::get_res<T, S>);
+        ClassDB::bind_method(D_METHOD(set_name.value, S.value), &GameMainScene::set_res<T, S>);
         ClassDB::add_property("FlyingScene", PropertyInfo(Variant::OBJECT, S.value, PROPERTY_HINT_RESOURCE_TYPE, TS.value),
                                 set_name.value, get_name.value);
     }

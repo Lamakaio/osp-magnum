@@ -1,6 +1,6 @@
 #include "register_types.h"
 
-#include "flying_scene.h"
+#include "testscene.h"
 
 #include <gdextension_interface.h>
 #include <godot_cpp/core/defs.hpp>
@@ -15,7 +15,7 @@ void godot::initialize_example_module(ModuleInitializationLevel p_level)
         return;
     }
 
-    ClassDB::register_class<FlyingScene>();
+    ClassDB::register_class<GodotTestScene>();
 }
 
 void godot::uninitialize_example_module(ModuleInitializationLevel p_level)

@@ -24,7 +24,7 @@
  */
 #include "godot.h"
 
-#include "flying_scene.h"
+#include "testscene.h"
 #include "input.h"
 #include "render.h"
 
@@ -80,13 +80,13 @@ osp::fw::FeatureDef const ftrGodot = feature_def("Godot", [] (
         DependOn<FIWindowApp>       windowApp,
         entt::any                   userData)
 {
-    auto pMainApp    = entt::any_cast<godot::FlyingScene*>(userData);
+    auto pMainApp    = entt::any_cast<godot::GodotTestScene*>(userData);
     auto &rUserInput = rFB.data_get<UserInputHandler>(windowApp.di.userInput);
 
     config_controls(rUserInput);
     //pMainApp->set_user_input(&rUserInput);
 
-    rFB.data_emplace<godot::FlyingScene *>(godot.di.app, pMainApp);
+    rFB.data_emplace<godot::GodotTestScene *>(godot.di.app, pMainApp);
 
     rFB.pipeline(godot.pl.mesh).parent(windowApp.pl.sync);
     rFB.pipeline(godot.pl.texture).parent(windowApp.pl.sync);

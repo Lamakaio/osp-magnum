@@ -33,7 +33,7 @@
 
 namespace godot
 {
-class FlyingScene;
+class GodotTestScene;
 }
 
 namespace ospgdext

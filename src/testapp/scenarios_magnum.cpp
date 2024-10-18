@@ -86,7 +86,7 @@ FeatureDef const ftrEngineTestRenderer = feature_def("EngineTestRenderer", [] (
 });
 
 
-ContextId make_scene_renderer(TestApp &rTestApp, ContextId sceneCtx, ContextId windowCtx)
+static ContextId make_scene_renderer(TestApp &rTestApp, ContextId sceneCtx, ContextId windowCtx)
 {
     Framework &rFW              = rTestApp.m_framework;
     auto const magnum           = rFW.get_interface<FIMagnum>         (windowCtx);

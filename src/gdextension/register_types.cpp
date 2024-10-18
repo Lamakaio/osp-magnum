@@ -1,5 +1,6 @@
 #include "register_types.h"
 
+#include "game.h"
 #include "testscene.h"
 
 #include <gdextension_interface.h>
@@ -16,6 +17,7 @@ void godot::initialize_example_module(ModuleInitializationLevel p_level)
     }
 
     ClassDB::register_class<GodotTestScene>();
+    ClassDB::register_class<GameMainScene>();
 }
 
 void godot::uninitialize_example_module(ModuleInitializationLevel p_level)

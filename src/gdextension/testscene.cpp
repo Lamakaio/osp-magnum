@@ -101,7 +101,7 @@ GodotTestScene::~GodotTestScene() {
   // delete (ExecutorType *)m_pExecutor;
 }
 
-osp::Logger_t g_mainThreadLogger;
+static osp::Logger_t g_mainThreadLogger;
 
 class GodotLogSink final
     : public spdlog::sinks::base_sink<spdlog::details::null_mutex> {
@@ -380,7 +380,7 @@ void GodotTestScene::load_a_bunch_of_stuff() {
   OSP_LOG_INFO("Resource loading complete");
 }
 
-ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
+static ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
                               ContextId sceneCtx, ContextId windowCtx,
                               PkgId defaultPkg) {
   auto const godot = rFW.get_interface<FIGodot>(windowCtx);

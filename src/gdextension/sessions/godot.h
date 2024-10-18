@@ -24,6 +24,7 @@
  */
 #pragma once
 
+#include "game.h"
 #include "render.h"
 
 #include <osp/framework/builder.h>
@@ -33,7 +34,7 @@
 
 namespace godot
 {
-class GodotTestScene;
+class GameMainScene;
 }
 
 namespace ospgdext

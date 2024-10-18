@@ -1,4 +1,4 @@
-#include "testscene.h"
+#include "game.h"
 #include "feature_interfaces.h"
 #include "render.h"
 #include "scenarios.h"
@@ -6,11 +6,15 @@
 #include "spdlog/pattern_formatter.h"
 #include "spdlog/sinks/callback_sink.h"
 
+#include <filesystem>
+#include <godot_cpp/classes/button.hpp>
 #include <godot_cpp/classes/editor_interface.hpp>
 #include <godot_cpp/classes/editor_plugin.hpp>
 #include <godot_cpp/classes/editor_settings.hpp>
 #include <godot_cpp/classes/engine.hpp>
+#include <godot_cpp/classes/flow_container.hpp>
 #include <godot_cpp/classes/global_constants.hpp>
+#include <godot_cpp/classes/h_flow_container.hpp>
 #include <godot_cpp/classes/input.hpp>
 #include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/input_event_key.hpp>
@@ -25,10 +29,14 @@
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/resource_saver.hpp>
 #include <godot_cpp/classes/scene_tree.hpp>
+#include <godot_cpp/classes/scroll_container.hpp>
 #include <godot_cpp/classes/standard_material3d.hpp>
+#include <godot_cpp/classes/sub_viewport_container.hpp>
 #include <godot_cpp/classes/surface_tool.hpp>
+#include <godot_cpp/classes/tab_container.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/classes/world3d.hpp>
+#include <godot_cpp/classes/h_split_container.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/node_path.hpp>
 #include <godot_cpp/variant/transform3d.hpp>
@@ -48,6 +56,7 @@
 #include <adera_app/features/vehicles.h>
 #include <adera_app/features/vehicles_machines.h>
 
+#include <longeron/id_management/null.hpp>
 #include <osp/core/Resources.h>
 #include <osp/core/string_concat.h>
 #include <osp/drawing/own_restypes.h>
@@ -71,6 +80,8 @@
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include <string_view>
+#include <toml.hpp>
+#include <toml11/find.hpp>
 
 using namespace adera;
 using namespace ftr_inter;
@@ -79,28 +90,28 @@ using namespace osp::draw;
 using namespace osp::fw;
 using namespace ospgdext;
 
-void GodotTestScene::_bind_methods() {
+void GameMainScene::_bind_methods() {
 
-  GodotTestScene::register_arg<NodePath, "light_node">();
+  GameMainScene::register_arg<NodePath, "light_node">();
 
-  GodotTestScene::register_res_arg<Material, "mat_base",  "Material">();
-  GodotTestScene::register_res_arg<Material, "mat_metal", "Material">();
-  GodotTestScene::register_res_arg<Material, "mat_plume", "Material">();
-  GodotTestScene::register_res_arg<Material, "mat_dbg",   "Material">();
+  GameMainScene::register_res_arg<Material, "mat_base",  "Material">();
+  GameMainScene::register_res_arg<Material, "mat_metal", "Material">();
+  GameMainScene::register_res_arg<Material, "mat_plume", "Material">();
+  GameMainScene::register_res_arg<Material, "mat_dbg",   "Material">();
 }
 
-GodotTestScene::GodotTestScene(){
+GameMainScene::GameMainScene(){
   // setup the Debug thingies
   new Corrade::Utility::Debug{&m_dbgStream};
   new Corrade::Utility::Warning{&m_warnStream};
   new Corrade::Utility::Error{&m_errStream};
 }
 
-GodotTestScene::~GodotTestScene() {
+GameMainScene::~GameMainScene() {
   // delete (ExecutorType *)m_pExecutor;
 }
 
-osp::Logger_t g_mainThreadLogger;
+static osp::Logger_t g_mainThreadLogger;
 
 class GodotLogSink final
     : public spdlog::sinks::base_sink<spdlog::details::null_mutex> {
@@ -126,9 +137,9 @@ protected:
   void flush_() override {}
 };
 
-void GodotTestScene::_enter_tree() // practically main()?
+void GameMainScene::_enter_tree() // practically main()?
 {
-  if (Engine::get_singleton()->is_editor_hint()) {return;}
+  //if (Engine::get_singleton()->is_editor_hint()) {return;}
   auto pSink = std::make_shared<GodotLogSink>();
   pSink->set_pattern("[%T.%e] [%n] [%^%l%$] [%s:%#] %v");
   g_mainThreadLogger = std::make_shared<spdlog::logger>("main-thread", pSink);
@@ -168,18 +179,18 @@ void GodotTestScene::_enter_tree() // practically main()?
   
 }
 
-void GodotTestScene::_ready() {
+void GameMainScene::_ready() {
   // Setup godot-related stuff based on whatever features the scenario loaded
   // into the framework
   if (Engine::get_singleton()->is_editor_hint()) {return;}
   setup_app();
 }
 
-void GodotTestScene::_physics_process(double delta) {
+void GameMainScene::_physics_process(double delta) {
   // ospjolt::SysJolt::update_world() update the world
 }
 
-void GodotTestScene::_process(double delta) {
+void GameMainScene::_process(double delta) {
   if (Engine::get_singleton()->is_editor_hint()) {return;}
   auto const mainApp = m_framework.get_interface<FIMainApp>(m_mainContext);
   auto const &appCtxs =
@@ -206,13 +217,13 @@ void GodotTestScene::_process(double delta) {
   }
 }
 
-void GodotTestScene::_exit_tree() 
+void GameMainScene::_exit_tree() 
 { 
   if (Engine::get_singleton()->is_editor_hint()) {return;}
   destroy_app(); 
 }
 
-void GodotTestScene::drive_scene_cycle(UpdateParams p) {
+void GameMainScene::drive_scene_cycle(UpdateParams p) {
   Framework &rFW = m_framework;
 
   auto const mainApp = rFW.get_interface<FIMainApp>(m_mainContext);
@@ -243,7 +254,7 @@ void GodotTestScene::drive_scene_cycle(UpdateParams p) {
   m_executor.wait(m_framework);
 }
 
-void GodotTestScene::run_context_cleanup(ContextId ctx) {
+void GameMainScene::run_context_cleanup(ContextId ctx) {
   auto const cleanup = m_framework.get_interface<FICleanupContext>(ctx);
   if (cleanup.id.has_value()) {
     // Run cleanup pipeline for the window context
@@ -257,7 +268,7 @@ void GodotTestScene::run_context_cleanup(ContextId ctx) {
   }
 }
 
-void GodotTestScene::clear_resource_owners() {
+void GameMainScene::clear_resource_owners() {
   using namespace osp::restypes;
 
   auto const mainApp = m_framework.get_interface<FIMainApp>(m_mainContext);
@@ -298,7 +309,7 @@ void GodotTestScene::clear_resource_owners() {
   m_viewport = {};
 }
 
-void GodotTestScene::load_a_bunch_of_stuff() {
+void GameMainScene::load_a_bunch_of_stuff() {
   using namespace osp::restypes;
   using namespace Magnum;
   using Primitives::ConeFlag;
@@ -363,10 +374,106 @@ void GodotTestScene::load_a_bunch_of_stuff() {
   m_mats.push_back(get_res<Material, "mat_plume">()->get_rid());
   m_mats.push_back(get_res<Material, "mat_dbg">()->get_rid());
 
+  //loading parts
+  const std::string parts_path = osp::string_concat(datapath, "/parts");
+  for (const auto &entry : std::filesystem::recursive_directory_iterator(parts_path)) {
+    if (!std::filesystem::is_directory(entry)) 
+    {
+      auto part_result = toml::try_parse(entry.path());
+      if (part_result.is_ok()) {
+        toml::value part_toml = part_result.unwrap();
+        PartInfo part;
+        part.name = toml::find_or(part_toml, "name", "");
+        if (part.name == "") 
+        {
+          OSP_LOG_WARN("Part must have a name at : ", entry.path());
+          continue;
+        }
+        part.mass = toml::find_or<float>(part_toml, "mass", 0.0);
+        part.category = toml::find_or<std::string>(part_toml, "category", "");
+        float scale_singleton = toml::find_or<float>(part_toml, "scale", 1.0);
+        Vector3 scale_vec;
+        scale_vec.x = toml::find_or<float>(part_toml, "scale", "x", 1.0);
+        scale_vec.y = toml::find_or<float>(part_toml, "scale", "y", 1.0);
+        scale_vec.z = toml::find_or<float>(part_toml, "scale", "z", 1.0);
+        if (scale_singleton == 1.0) 
+        {
+          part.scale = scale_vec;
+        }
+        else 
+        {
+          part.scale = Vector3(scale_singleton, scale_singleton, scale_singleton);
+        }
+
+        std::string primitive = toml::find_or(part_toml, "primitive_shape", "");
+        std::string gltf_file = toml::find_or(part_toml, "mesh_file", "");
+
+        if (primitive != "") 
+        {
+          part.mesh = rResources.find(gc_mesh, m_defaultPkg, primitive);
+          if (part.mesh == lgrn::id_null<ResId>()) 
+          {
+            OSP_LOG_WARN("Unknown primitive ", primitive,  " at : ", entry.path());
+            continue;
+          }
+        }
+        else 
+        {
+          part.mesh = osp::load_tinygltf_file(gltf_file, rResources, m_defaultPkg);
+          if (part.mesh == lgrn::id_null<ResId>()) {
+            OSP_LOG_WARN("Loading gltf file ", gltf_file,  " failed at : ", entry.path());
+            continue;
+          }
+          osp::assigns_prefabs_tinygltf(rResources, part.mesh);
+        }
+
+        m_part_info.push_back(part);
+      }
+    }
+  }
+
   OSP_LOG_INFO("Resource loading complete");
+  make_editor_ui();
 }
 
-ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
+void GameMainScene::make_editor_ui() {
+  auto splitContainer = memnew(HSplitContainer);
+  splitContainer->set_anchors_preset(Control::LayoutPreset::PRESET_FULL_RECT);
+  splitContainer->set_split_offset(220);
+  splitContainer->set_visible(true);
+  splitContainer->set_dragger_visibility(SplitContainer::DraggerVisibility::DRAGGER_VISIBLE);
+  add_child(splitContainer);
+  auto tabContainer = memnew(TabContainer);
+  auto viewContainer = memnew(SubViewportContainer);
+  auto viewport = memnew(Viewport);
+  splitContainer->add_child(tabContainer);
+  splitContainer->add_child(viewContainer);
+  viewContainer->add_child(viewport);
+  m_editor_viewport = viewport->get_viewport_rid();
+  for (PartInfo& part : m_part_info) 
+  {
+    auto b = memnew(Button);
+    b->set_custom_minimum_size(godot::Vector2(100, 100));
+    b->set_text(part.name.c_str());
+    if (!m_categories.contains(part.category)) 
+    {
+      auto scrollContainer = memnew(ScrollContainer);
+      scrollContainer->set_horizontal_scroll_mode(ScrollContainer::ScrollMode::SCROLL_MODE_DISABLED);
+      scrollContainer->set_anchors_preset(Control::LayoutPreset::PRESET_FULL_RECT);
+      auto flowContainer = memnew(HFlowContainer);
+      flowContainer->set_h_size_flags(Control::SizeFlags::SIZE_EXPAND_FILL);
+      flowContainer->set_anchors_preset(Control::LayoutPreset::PRESET_FULL_RECT);
+      scrollContainer->set_name(part.category.c_str());
+      m_categories[part.category] = flowContainer;
+      tabContainer->add_child(scrollContainer);
+      scrollContainer->add_child(flowContainer);
+    }
+    m_categories[part.category]->add_child(b);
+  }
+
+}
+
+static ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
                               ContextId sceneCtx, ContextId windowCtx,
                               PkgId defaultPkg) {
   auto const godot = rFW.get_interface<FIGodot>(windowCtx);
@@ -434,7 +541,7 @@ ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
   return scnRdrCtx;
 } // make_scene_renderer
 
-void GodotTestScene::setup_app() {
+void GameMainScene::setup_app() {
   // Setup Godot 'window application' renderer context
   // This is intended to stay alive as long as godot is open (forever), unlike
   // the scene renderer which is intended to be swapped out when the scene
@@ -446,7 +553,7 @@ void GodotTestScene::setup_app() {
   ContextId const windowCtx = m_framework.m_contextIds.create();
   ContextBuilder windowCB{windowCtx, {m_mainContext, sceneCtx}, m_framework};
   windowCB.add_feature(adera::ftrWindowApp);
-  windowCB.add_feature(ftrGodot, entt::make_any<godot::GodotTestScene *>(this));
+  windowCB.add_feature(ftrGodot, entt::make_any<godot::GameMainScene *>(this));
   ContextBuilder::finalize(std::move(windowCB));
 
   OSP_LOG_INFO("Setup godot");
@@ -479,7 +586,7 @@ void GodotTestScene::setup_app() {
                      .render = false});
 }
 
-void GodotTestScene::draw_event() {
+void GameMainScene::draw_event() {
   drive_scene_cycle({.deltaTimeIn = 1.0f / 60.0f,
                      .update = true,
                      .sceneUpdate = true,
@@ -488,7 +595,7 @@ void GodotTestScene::draw_event() {
                      .render = true});
 }
 
-void GodotTestScene::_input(const Ref<InputEvent> &input) {
+void GameMainScene::_input(const Ref<InputEvent> &input) {
   auto const mainApp = m_framework.get_interface<FIMainApp>(m_mainContext);
   auto const &appCtxs =
       m_framework.data_get<AppContexts>(mainApp.di.appContexts);
@@ -562,7 +669,7 @@ void GodotTestScene::_input(const Ref<InputEvent> &input) {
   }
 };
 
-void GodotTestScene::destroy_app() {
+void GameMainScene::destroy_app() {
   OSP_LOG_INFO("Destroy App");
 
   // Stops the pipeline loop

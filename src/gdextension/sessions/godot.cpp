@@ -24,6 +24,7 @@
  */
 #include "godot.h"
 
+#include "game.h"
 #include "testscene.h"
 #include "input.h"
 #include "render.h"
@@ -80,13 +81,13 @@ osp::fw::FeatureDef const ftrGodot = feature_def("Godot", [] (
         DependOn<FIWindowApp>       windowApp,
         entt::any                   userData)
 {
-    auto pMainApp    = entt::any_cast<godot::GodotTestScene*>(userData);
+    auto pMainApp    = entt::any_cast<godot::GameMainScene*>(userData);
     auto &rUserInput = rFB.data_get<UserInputHandler>(windowApp.di.userInput);
 
     config_controls(rUserInput);
     //pMainApp->set_user_input(&rUserInput);
 
-    rFB.data_emplace<godot::GodotTestScene *>(godot.di.app, pMainApp);
+    rFB.data_emplace<godot::GameMainScene *>(godot.di.app, pMainApp);
 
     rFB.pipeline(godot.pl.mesh).parent(windowApp.pl.sync);
     rFB.pipeline(godot.pl.texture).parent(windowApp.pl.sync);
@@ -97,7 +98,7 @@ osp::fw::FeatureDef const ftrGodot = feature_def("Godot", [] (
     auto &rRenderGd    = rFB.data_emplace<RenderGd>(godot.di.render);
 
     rRenderGd.scenario = pMainApp->get_main_scenario();
-    rRenderGd.viewport = pMainApp->get_main_viewport();
+    rRenderGd.viewport = pMainApp->get_current_viewport();
     rRenderGd.m_mats   = pMainApp->get_godot_mats();
     rFB.task()
         .name("Clean up renderer")

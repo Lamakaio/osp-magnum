@@ -1,6 +1,7 @@
 #pragma once
 
 #include "godot_utils.h"
+#include "osp/scientific/shapes.h"
 #include <algorithm>
 #include <godot_cpp/classes/class_db_singleton.hpp>
 #include <godot_cpp/classes/global_constants.hpp>
@@ -8,6 +9,7 @@
 #include <godot_cpp/classes/material.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/classes/resource.hpp>
+#include <godot_cpp/classes/scroll_container.hpp>
 #include <godot_cpp/classes/thread.hpp>
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/variant.hpp>
@@ -19,10 +21,21 @@
 #include <osp/framework/executor.h>
 #include <osp/framework/framework.h>
 #include <osp/util/UserInputHandler.h>
+#include <toml.hpp>
+#include <variant>
 #include <vector>
 
 namespace godot
 {
+
+struct PartInfo {
+  std::string name;
+  std::string category;
+  osp::ResId mesh;
+  Vector3 scale;
+  float mass;
+};
+
 using namespace osp::input;
 class GameMainScene : public Node3D
 {
@@ -40,13 +53,22 @@ private:
         bool render;
     };
 
+    enum CurrentScene {
+        EDITOR, 
+        GAME
+    };
+
     std::map<const char*, void*>         m_argmap;
     std::map<const char*, Ref<Resource>> m_resmap;
 
-    RID               m_scenario;
-    RID               m_viewport;
-    std::vector<RID>  m_mats;
-    Node3D*           m_light;
+    CurrentScene            m_currentScene;
+    RID                     m_scenario;
+    RID                     m_viewport;
+    RID                     m_editor_viewport;
+    std::vector<RID>        m_mats;
+    std::vector<PartInfo>   m_part_info;
+    Node3D*                 m_light;
+    std::map<std::string, Container*> m_categories;
 
     //TestApp           m_testApp;
     //adera::MainLoopControl  *m_mainLoopCtrl;
@@ -74,6 +96,7 @@ private:
     void run_context_cleanup(osp::fw::ContextId);
 
     void              load_a_bunch_of_stuff();
+    void              make_editor_ui();
     void              setup_app();
     void              draw_event();
     void              destroy_app();
@@ -97,9 +120,14 @@ public:
     {
         return m_scenario;
     };
-    inline godot::RID get_main_viewport()
+    inline godot::RID get_current_viewport()
     {
-        return m_viewport;
+        switch (m_currentScene) {
+        case EDITOR:
+            return m_editor_viewport;
+        case GAME:
+            return m_viewport;
+        }
     };
 
     inline std::vector<godot::RID> get_godot_mats()
@@ -115,7 +143,7 @@ public:
         constexpr StringLiteral<N+4> set_name = concat<5, N, "set_", S>();
         ClassDB::bind_method(D_METHOD(get_name.value), &GameMainScene::get_<T, S>);
         ClassDB::bind_method(D_METHOD(set_name.value, S.value), &GameMainScene::set_<T, S>);
-        ClassDB::add_property("FlyingScene", PropertyInfo(get_gd_type<T>(), S.value),
+        ClassDB::add_property("GameMainScene", PropertyInfo(get_gd_type<T>(), S.value),
                                 set_name.value, get_name.value);
     }
 
@@ -126,7 +154,7 @@ public:
         constexpr StringLiteral<N+4> set_name = concat<5, N, "set_", S>();
         ClassDB::bind_method(D_METHOD(get_name.value), &GameMainScene::get_res<T, S>);
         ClassDB::bind_method(D_METHOD(set_name.value, S.value), &GameMainScene::set_res<T, S>);
-        ClassDB::add_property("FlyingScene", PropertyInfo(Variant::OBJECT, S.value, PROPERTY_HINT_RESOURCE_TYPE, TS.value),
+        ClassDB::add_property("GameMainScene", PropertyInfo(Variant::OBJECT, S.value, PROPERTY_HINT_RESOURCE_TYPE, TS.value),
                                 set_name.value, get_name.value);
     }
 
@@ -172,5 +200,6 @@ public:
 //        //m_signals      = signals;
 //    }
 };
+
 
 } // namespace godot

@@ -97,7 +97,7 @@ osp::fw::FeatureDef const ftrGodot = feature_def("Godot", [] (
     /* unused */ // rFB.data_emplace<MagnumApplication>(idActiveApp, args, rUserInput);
     auto &rRenderGd    = rFB.data_emplace<RenderGd>(godot.di.render);
 
-    rRenderGd.scenario = pMainApp->get_main_scenario();
+    rRenderGd.scenario = pMainApp->get_current_scenario();
     rRenderGd.viewport = pMainApp->get_current_viewport();
     rRenderGd.m_mats   = pMainApp->get_godot_mats();
     rFB.task()

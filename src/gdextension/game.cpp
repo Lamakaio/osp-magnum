@@ -176,6 +176,22 @@ void GameMainScene::_enter_tree() // practically main()?
 
   OSP_LOG_INFO("Created viewport, scenario, and light");
 
+  m_currentScene = CurrentScene::EDITOR;
+  RID editor_light = renderingServer->directional_light_create();
+  RID editor_light_instance = renderingServer->instance_create2(editor_light, get_current_scenario());
+  renderingServer->instance_set_transform(editor_light_instance, lform);
+  CharString const utf8 = get_<String, "scene">().utf8();
+    OSP_LOG_INFO("Scene is {}", utf8.ptr());
+    auto const it = scenarios().find("vehicles" /*m_scene.utf8().get_data()*/);
+    if (it == std::end(scenarios())) {
+      OSP_LOG_INFO("Unknown scene");
+      clear_resource_owners();
+      return;
+    }
+    ScenarioOption const &rSelectedScenario = it->second;
+
+    // Loads data into the framework; contains nothing godot-related
+    rSelectedScenario.loadFunc(m_framework, m_mainContext, m_defaultPkg);
   
 }
 
@@ -449,7 +465,13 @@ void GameMainScene::make_editor_ui() {
   splitContainer->add_child(tabContainer);
   splitContainer->add_child(viewContainer);
   viewContainer->add_child(viewport);
+  viewContainer->set_h_size_flags(Control::SizeFlags::SIZE_EXPAND_FILL);
+  viewContainer->set_v_size_flags(Control::SizeFlags::SIZE_EXPAND_FILL);
+  viewContainer->set_stretch(true);
   m_editor_viewport = viewport->get_viewport_rid();
+  RenderingServer *rs = RenderingServer::get_singleton();
+  m_editor_scenario = rs->scenario_create();
+  rs->viewport_set_scenario(m_editor_viewport, m_editor_scenario);
   for (PartInfo& part : m_part_info) 
   {
     auto b = memnew(Button);

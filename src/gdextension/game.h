@@ -63,6 +63,7 @@ private:
 
     CurrentScene            m_currentScene;
     RID                     m_scenario;
+    RID                     m_editor_scenario;
     RID                     m_viewport;
     RID                     m_editor_viewport;
     std::vector<RID>        m_mats;
@@ -116,9 +117,15 @@ public:
     void              _process(double delta) override;
     void              _input(const Ref<InputEvent> &input) override;
 
-    inline godot::RID get_main_scenario()
+    inline godot::RID get_current_scenario()
     {
-        return m_scenario;
+        switch (m_currentScene) {
+        case EDITOR:
+            return m_editor_scenario;
+        case GAME:
+        default:
+            return m_scenario;
+        }
     };
     inline godot::RID get_current_viewport()
     {
@@ -126,6 +133,7 @@ public:
         case EDITOR:
             return m_editor_viewport;
         case GAME:
+        default:
             return m_viewport;
         }
     };

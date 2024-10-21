@@ -24,6 +24,7 @@
  */
 #pragma once
 
+#include "osp/tasks/tasks.h"
 #include <adera_app/feature_interfaces.h>
 
 namespace ftr_inter
@@ -57,29 +58,21 @@ struct FIGodotScene {
     };
 };
 
-
-struct FIShaderVisualizerGD {
-    struct DataIds {
-        DataId shader;
+struct FIEditor {
+    struct DataIds { 
+        DataId ctx;
     };
 
-    struct Pipelines { };
+    struct Pipelines { 
+        PipelineDef<EStgOptn> spawn {"editorPartSpawn"};
+    };
 };
 
-struct FIShaderFlatGD {
-    struct DataIds {
-        DataId shader;
+struct FIGodotEditor {
+    struct DataIds { };
+
+    struct Pipelines { 
     };
-
-    struct Pipelines { };
-};
-
-struct FIShaderPhongGD {
-    struct DataIds {
-        DataId shader;
-    };
-
-    struct Pipelines { };
 };
 
 

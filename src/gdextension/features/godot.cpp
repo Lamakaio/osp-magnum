@@ -24,6 +24,8 @@
  */
 #include "godot.h"
 
+#include "adera_app/feature_interfaces.h"
+#include "features/editor.h"
 #include "game.h"
 #include "testscene.h"
 #include "input.h"
@@ -93,8 +95,7 @@ osp::fw::FeatureDef const ftrGodot = feature_def("Godot", [] (
     rFB.pipeline(godot.pl.texture).parent(windowApp.pl.sync);
     rFB.pipeline(godot.pl.entMesh).parent(windowApp.pl.sync);
     rFB.pipeline(godot.pl.entTexture).parent(windowApp.pl.sync);
-    // Order-dependent; MagnumApplication construction starts OpenGL context, needed by RenderGL
-    /* unused */ // rFB.data_emplace<MagnumApplication>(idActiveApp, args, rUserInput);
+
     auto &rRenderGd    = rFB.data_emplace<RenderGd>(godot.di.render);
 
     rRenderGd.scenario = pMainApp->get_current_scenario();
@@ -366,6 +367,25 @@ osp::fw::FeatureDef const ftrGodotScene = feature_def("GodotScene", [] (
             rScnRenderGd = {}; // Needs the OpenGL thread for destruction
         });
 }); // ftrGodotScene
+
+osp::fw::FeatureDef const ftrGodotEditor = feature_def("GodotEditor", [] (
+        FeatureBuilder              &rFB,
+        Implement<FIGodotEditor>    godotEditor,
+        DependOn<FIEditor>          editor,
+        DependOn<FIGodot>           godot,
+        DependOn<FIMainApp>         mainApp
+        )
+{
+    rFB.task()
+        .name("Sync part selection")
+        .schedules(editor.pl.spawn(Schedule))
+        .sync_with({ mainApp.pl.mainLoop(Run) })
+        .args({ godot.di.app, editor.di.ctx })
+        .func([](godot::GameMainScene* pMainApp, ACtxEditor &rEditor) noexcept {
+            rEditor.m_selectedPart = pMainApp->get_selected_part();
+            return (rEditor.m_selectedPart != nullptr) ? osp::TaskActions{} : osp::TaskAction::Cancel;
+        });
+}); // ftrGodot
 
 void sync_godot_ent(DrawEnt ent, ACtxSceneRender &rScnRender, ACtxSceneRenderGd &rScnRenderGd, RenderGd &rRenderGd, godot::RID rMat) noexcept
 {

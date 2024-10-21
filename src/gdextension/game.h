@@ -14,6 +14,7 @@
 #include <godot_cpp/variant/string.hpp>
 #include <godot_cpp/variant/variant.hpp>
 #include <map>
+#include <optional>
 #include <sstream>
 
 #include <adera_app/application.h>
@@ -31,7 +32,7 @@ namespace godot
 struct PartInfo {
   std::string name;
   std::string category;
-  osp::ResId mesh;
+  std::string prefab;
   Vector3 scale;
   float mass;
 };
@@ -69,6 +70,7 @@ private:
     std::vector<RID>        m_mats;
     std::vector<PartInfo>   m_part_info;
     Node3D*                 m_light;
+    PartInfo*               m_selectedPart = nullptr;
     std::map<std::string, Container*> m_categories;
 
     //TestApp           m_testApp;
@@ -101,6 +103,7 @@ private:
     void              setup_app();
     void              draw_event();
     void              destroy_app();
+    void              editor_part_select(size_t id);
 
 protected:
     static void _bind_methods();
@@ -142,6 +145,12 @@ public:
     {
         return m_mats;
     };
+
+    inline const PartInfo* get_selected_part() {
+        auto ptr = m_selectedPart;
+        m_selectedPart = nullptr;
+        return ptr;
+    }
     //some template black magic to add arguments easily
 
     template<class T, StringLiteral S>

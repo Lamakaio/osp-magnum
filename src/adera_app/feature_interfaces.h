@@ -303,6 +303,11 @@ struct FIPrefabs {
     };
 };
 
+struct FIPrefabsPhysics {
+    struct DataIds { };
+
+    struct Pipelines { };
+};
 
 struct FIPrefabDraw {
     struct DataIds {

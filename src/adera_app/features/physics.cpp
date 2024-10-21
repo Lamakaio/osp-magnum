@@ -78,8 +78,7 @@ FeatureDef const ftrPrefabs = feature_def("Prefabs", [] (
         Implement<FIPrefabs>        prefabs,
         DependOn<FIMainApp>         mainApp,
         DependOn<FIScene>           scn,
-        DependOn<FICommonScene>     comScn,
-        DependOn<FIPhysics>         phys)
+        DependOn<FICommonScene>     comScn)
 {
     rFB.pipeline(prefabs.pl.spawnRequest).parent(scn.pl.update);
     rFB.pipeline(prefabs.pl.spawnedEnts) .parent(scn.pl.update);
@@ -132,6 +131,24 @@ FeatureDef const ftrPrefabs = feature_def("Prefabs", [] (
     });
 
     rFB.task()
+        .name       ("Clear Prefab vector")
+        .run_on     ({prefabs.pl.spawnRequest(Clear)})
+        .args       ({        prefabs.di.prefabs})
+        .func       ([] (ACtxPrefabs &rPrefabs) noexcept
+    {
+        rPrefabs.spawnRequest.clear();
+    });
+}); // ftrPrefabs
+
+FeatureDef const ftrPrefabsPhysics = feature_def("PrefabsPhysics", [] (
+        FeatureBuilder              &rFB,
+        Implement<FIPrefabsPhysics> prefab_pĥysics,
+        DependOn<FIPrefabs>         prefabs,
+        DependOn<FIMainApp>         mainApp,
+        DependOn<FICommonScene>     comScn,
+        DependOn<FIPhysics>         phys)
+{
+    rFB.task()
         .name       ("Init Prefab physics")
         .run_on     ({prefabs.pl.spawnRequest(UseOrRun)})
         .sync_with  ({prefabs.pl.spawnedEnts(UseOrRun), phys.pl.physBody(Modify), phys.pl.physUpdate(Done)})
@@ -143,15 +160,6 @@ FeatureDef const ftrPrefabs = feature_def("Prefabs", [] (
         rPhys.m_shape.resize(rBasic.m_activeIds.capacity());
         SysPrefabInit::init_physics(rPrefabs, rResources, rPhys);
     });
-
-    rFB.task()
-        .name       ("Clear Prefab vector")
-        .run_on     ({prefabs.pl.spawnRequest(Clear)})
-        .args       ({        prefabs.di.prefabs})
-        .func       ([] (ACtxPrefabs &rPrefabs) noexcept
-    {
-        rPrefabs.spawnRequest.clear();
-    });
 }); // ftrPrefabs
 
 
@@ -162,7 +170,7 @@ FeatureDef const ftrPrefabDraw = feature_def("PrefabDraw", [] (
         DependOn<FIMainApp>         mainApp,
         DependOn<FIScene>           scn,
         DependOn<FICommonScene>     comScn,
-        DependOn<FIPhysics>         phys,
+        //DependOn<FIPhysics>         phys,
         DependOn<FIPrefabs>         prefabs,
         DependOn<FIWindowApp>       windowApp,
         DependOn<FISceneRenderer>   scnRender,

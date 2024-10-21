@@ -23,6 +23,7 @@
  * SOFTWARE.
  */
 #include "scenarios.h"
+#include "features/editor.h"
 
 #include <adera_app/application.h>
 
@@ -129,6 +130,7 @@ static ScenarioMap_t make_scenarios()
         sceneCB.add_feature(ftrBounds);
 
         sceneCB.add_feature(ftrPrefabs);
+        sceneCB.add_feature(ftrPrefabsPhysics);
         sceneCB.add_feature(ftrParts);
         sceneCB.add_feature(ftrSignalsFloat);
         sceneCB.add_feature(ftrVehicleSpawn);
@@ -172,6 +174,34 @@ static ScenarioMap_t make_scenarios()
             });
             rVehicleSpawnVB.dataVB.push_back(rPrebuiltVehicles[gc_pbvSimpleCommandServiceModule].get());
         }
+
+    }});
+
+
+    add_scenario({
+        .name        = "editor",
+        .brief       = "Editor",
+        .description = "Controls (FREECAM):\n"
+                       "* [WASD]            - Move camera\n"
+                       "* [QE]              - Move camera up/down\n"
+                       "* [Drag MouseRight] - Orbit camera\n",
+        .loadFunc = [] (osp::fw::Framework &rFW, osp::fw::ContextId mainCtx, osp::PkgId pkg)
+    {
+        auto  const mainApp   = rFW.get_interface<FIMainApp>  (mainCtx);
+
+
+        ContextId const sceneCtx = rFW.m_contextIds.create();
+        rFW.data_get<adera::AppContexts&>(mainApp.di.appContexts).scene = sceneCtx;
+
+        ContextBuilder  sceneCB { sceneCtx, {mainCtx}, rFW };
+        sceneCB.add_feature(ftrScene);
+        sceneCB.add_feature(ftrCommonScene, pkg);
+
+        sceneCB.add_feature(ftrPrefabs);
+        sceneCB.add_feature(ftrParts);
+        sceneCB.add_feature(ftrEditor);
+
+        ContextBuilder::finalize(std::move(sceneCB));
 
     }});
 

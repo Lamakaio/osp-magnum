@@ -2,7 +2,7 @@
 #include "feature_interfaces.h"
 #include "render.h"
 #include "scenarios.h"
-#include "sessions/godot.h"
+#include "features/godot.h"
 #include "spdlog/pattern_formatter.h"
 #include "spdlog/sinks/callback_sink.h"
 

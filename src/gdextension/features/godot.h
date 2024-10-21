@@ -44,6 +44,8 @@ using namespace osp;
 
 extern osp::fw::FeatureDef const ftrGodot;
 
+extern osp::fw::FeatureDef const ftrGodotEditor;
+
 /**
  * @brief stuff needed to render a scene using Magnum
  */

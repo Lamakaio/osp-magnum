@@ -1,6 +1,6 @@
 /**
  * Open Space Program
- * Copyright © 2019-2024 Open Space Program Project
+ * Copyright © 2019-2022 Open Space Program Project
  *
  * MIT License
  *
@@ -24,26 +24,37 @@
  */
 #pragma once
 
+#include "game.h"
+#include "osp/vehicles/prefabs.h"
+#include "render.h"
+
 #include <osp/framework/builder.h>
 
-namespace adera
+#include <osp/activescene/basic.h>
+#include <osp/drawing/drawing.h>
+
+namespace ospgdext
 {
+using namespace osp;
 
+struct ACtxEditor
+{
+    struct PrefabRes {
+        ResId m_importer;
+        PrefabId m_prefabId;
+    };
+    const godot::PartInfo* m_selectedPart = nullptr;
+    // entt::dense_map< std::string_view, PrefabRes > m_prefabs;
+    std::map< std::string_view, PrefabRes > m_prefabs;
+    // std::vector<TmpPrefabRequest>               spawnRequest;
+    // std::vector< ArrayView<ActiveEnt const> >   spawnedEntsOffset;
+    // std::vector<ActiveEnt>                      newEnts;
 
-/**
- * @brief Physical properties for entities and generic Physics interface
- *
- * Independent of whichever physics engine is used
- */
-extern osp::fw::FeatureDef const ftrPhysics;
+    // osp::active::ActiveEntSet_t                 roots;
+    // KeyedVec<ActiveEnt, PrefabInstanceInfo>     instanceInfo;
+};
 
-/**
- * @brief Queues and logic for spawning Prefab resources
- */
-extern osp::fw::FeatureDef const ftrPrefabs;
+extern osp::fw::FeatureDef const ftrEditor;
 
-extern osp::fw::FeatureDef const ftrPrefabsPhysics;
+} // namespace ospgdext
 
-extern osp::fw::FeatureDef const ftrPrefabDraw;
-
-} // namespace adera

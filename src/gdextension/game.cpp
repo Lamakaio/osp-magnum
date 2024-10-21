@@ -2,7 +2,7 @@
 #include "feature_interfaces.h"
 #include "render.h"
 #include "scenarios.h"
-#include "sessions/godot.h"
+#include "features/godot.h"
 #include "spdlog/pattern_formatter.h"
 #include "spdlog/sinks/callback_sink.h"
 
@@ -98,6 +98,8 @@ void GameMainScene::_bind_methods() {
   GameMainScene::register_res_arg<Material, "mat_metal", "Material">();
   GameMainScene::register_res_arg<Material, "mat_plume", "Material">();
   GameMainScene::register_res_arg<Material, "mat_dbg",   "Material">();
+
+  ClassDB::bind_method(D_METHOD("editor_part_select", "rName"), &GameMainScene::editor_part_select);
 }
 
 GameMainScene::GameMainScene(){
@@ -182,7 +184,7 @@ void GameMainScene::_enter_tree() // practically main()?
   renderingServer->instance_set_transform(editor_light_instance, lform);
   CharString const utf8 = get_<String, "scene">().utf8();
     OSP_LOG_INFO("Scene is {}", utf8.ptr());
-    auto const it = scenarios().find("vehicles" /*m_scene.utf8().get_data()*/);
+    auto const it = scenarios().find("editor" /*m_scene.utf8().get_data()*/);
     if (it == std::end(scenarios())) {
       OSP_LOG_INFO("Unknown scene");
       clear_resource_owners();
@@ -389,7 +391,6 @@ void GameMainScene::load_a_bunch_of_stuff() {
   m_mats.push_back(get_res<Material, "mat_metal">()->get_rid());
   m_mats.push_back(get_res<Material, "mat_plume">()->get_rid());
   m_mats.push_back(get_res<Material, "mat_dbg">()->get_rid());
-
   //loading parts
   const std::string parts_path = osp::string_concat(datapath, "/parts");
   for (const auto &entry : std::filesystem::recursive_directory_iterator(parts_path)) {
@@ -421,27 +422,13 @@ void GameMainScene::load_a_bunch_of_stuff() {
           part.scale = Vector3(scale_singleton, scale_singleton, scale_singleton);
         }
 
-        std::string primitive = toml::find_or(part_toml, "primitive_shape", "");
-        std::string gltf_file = toml::find_or(part_toml, "mesh_file", "");
+        std::string prefab = toml::find_or(part_toml, "prefab", "");
 
-        if (primitive != "") 
+        if (prefab == "") 
         {
-          part.mesh = rResources.find(gc_mesh, m_defaultPkg, primitive);
-          if (part.mesh == lgrn::id_null<ResId>()) 
-          {
-            OSP_LOG_WARN("Unknown primitive ", primitive,  " at : ", entry.path());
-            continue;
-          }
+          OSP_LOG_WARN("part must provide a prefab name. at : ", entry.path());
         }
-        else 
-        {
-          part.mesh = osp::load_tinygltf_file(gltf_file, rResources, m_defaultPkg);
-          if (part.mesh == lgrn::id_null<ResId>()) {
-            OSP_LOG_WARN("Loading gltf file ", gltf_file,  " failed at : ", entry.path());
-            continue;
-          }
-          osp::assigns_prefabs_tinygltf(rResources, part.mesh);
-        }
+        part.prefab = prefab;
 
         m_part_info.push_back(part);
       }
@@ -453,46 +440,52 @@ void GameMainScene::load_a_bunch_of_stuff() {
 }
 
 void GameMainScene::make_editor_ui() {
-  auto splitContainer = memnew(HSplitContainer);
-  splitContainer->set_anchors_preset(Control::LayoutPreset::PRESET_FULL_RECT);
-  splitContainer->set_split_offset(220);
-  splitContainer->set_visible(true);
-  splitContainer->set_dragger_visibility(SplitContainer::DraggerVisibility::DRAGGER_VISIBLE);
-  add_child(splitContainer);
-  auto tabContainer = memnew(TabContainer);
-  auto viewContainer = memnew(SubViewportContainer);
-  auto viewport = memnew(Viewport);
-  splitContainer->add_child(tabContainer);
-  splitContainer->add_child(viewContainer);
-  viewContainer->add_child(viewport);
-  viewContainer->set_h_size_flags(Control::SizeFlags::SIZE_EXPAND_FILL);
-  viewContainer->set_v_size_flags(Control::SizeFlags::SIZE_EXPAND_FILL);
-  viewContainer->set_stretch(true);
-  m_editor_viewport = viewport->get_viewport_rid();
-  RenderingServer *rs = RenderingServer::get_singleton();
-  m_editor_scenario = rs->scenario_create();
-  rs->viewport_set_scenario(m_editor_viewport, m_editor_scenario);
-  for (PartInfo& part : m_part_info) 
-  {
-    auto b = memnew(Button);
-    b->set_custom_minimum_size(godot::Vector2(100, 100));
-    b->set_text(part.name.c_str());
-    if (!m_categories.contains(part.category)) 
+    auto splitContainer = memnew(HSplitContainer);
+    splitContainer->set_anchors_preset(Control::LayoutPreset::PRESET_FULL_RECT);
+    splitContainer->set_split_offset(220);
+    splitContainer->set_visible(true);
+    splitContainer->set_dragger_visibility(SplitContainer::DraggerVisibility::DRAGGER_VISIBLE);
+    add_child(splitContainer);
+    auto tabContainer = memnew(TabContainer);
+    auto viewContainer = memnew(SubViewportContainer);
+    auto viewport = memnew(Viewport);
+    splitContainer->add_child(tabContainer);
+    splitContainer->add_child(viewContainer);
+    viewContainer->add_child(viewport);
+    viewContainer->set_h_size_flags(Control::SizeFlags::SIZE_EXPAND_FILL);
+    viewContainer->set_v_size_flags(Control::SizeFlags::SIZE_EXPAND_FILL);
+    viewContainer->set_stretch(true);
+    m_editor_viewport = viewport->get_viewport_rid();
+    RenderingServer *rs = RenderingServer::get_singleton();
+    m_editor_scenario = rs->scenario_create();
+    rs->viewport_set_scenario(m_editor_viewport, m_editor_scenario);
+    for (size_t i = 0; i < m_part_info.size(); ++i) 
     {
-      auto scrollContainer = memnew(ScrollContainer);
-      scrollContainer->set_horizontal_scroll_mode(ScrollContainer::ScrollMode::SCROLL_MODE_DISABLED);
-      scrollContainer->set_anchors_preset(Control::LayoutPreset::PRESET_FULL_RECT);
-      auto flowContainer = memnew(HFlowContainer);
-      flowContainer->set_h_size_flags(Control::SizeFlags::SIZE_EXPAND_FILL);
-      flowContainer->set_anchors_preset(Control::LayoutPreset::PRESET_FULL_RECT);
-      scrollContainer->set_name(part.category.c_str());
-      m_categories[part.category] = flowContainer;
-      tabContainer->add_child(scrollContainer);
-      scrollContainer->add_child(flowContainer);
+        auto b = memnew(Button);
+        b->set_custom_minimum_size(godot::Vector2(100, 100));
+        b->set_text(m_part_info[i].name.c_str());
+        b->connect("pressed", Callable(this, "editor_part_select").bind(i));
+        std::string &category = m_part_info[i].category;
+        if (!m_categories.contains(category)) 
+        {
+        auto scrollContainer = memnew(ScrollContainer);
+        scrollContainer->set_horizontal_scroll_mode(ScrollContainer::ScrollMode::SCROLL_MODE_DISABLED);
+        scrollContainer->set_anchors_preset(Control::LayoutPreset::PRESET_FULL_RECT);
+        auto flowContainer = memnew(HFlowContainer);
+        flowContainer->set_h_size_flags(Control::SizeFlags::SIZE_EXPAND_FILL);
+        flowContainer->set_anchors_preset(Control::LayoutPreset::PRESET_FULL_RECT);
+        scrollContainer->set_name(category.c_str());
+        m_categories[category] = flowContainer;
+        tabContainer->add_child(scrollContainer);
+        scrollContainer->add_child(flowContainer);
+        }
+        m_categories[category]->add_child(b);
     }
-    m_categories[part.category]->add_child(b);
-  }
+}
 
+void GameMainScene::editor_part_select(size_t id) {
+  m_selectedPart = &m_part_info[id];
+  OSP_LOG_INFO("selected part : ", m_part_info[id].name);
 }
 
 static ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
@@ -501,8 +494,6 @@ static ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
   auto const godot = rFW.get_interface<FIGodot>(windowCtx);
 
   ContextId const scnRdrCtx = rFW.m_contextIds.create();
-
-  // TODO: comment below is lying, and just adds features without guidance.
 
   // Choose which renderer features to use based on information on which
   // features the scene context contains.
@@ -537,12 +528,19 @@ static ContextId make_scene_renderer(Framework &rFW, ContextId mainCtx,
 
     scnRdrCB.add_feature(ftrCameraControlGD);
 
+    if (rFW.get_interface_id<FIPhysShapes>(sceneCtx).has_value()) {
     scnRdrCB.add_feature(ftrThrower);
     scnRdrCB.add_feature(ftrPhysicsShapesDraw, matFlat);
+    }
+    
     scnRdrCB.add_feature(ftrCursor, TplPkgIdMaterialId{defaultPkg, matDbg});
 
     if (rFW.get_interface_id<FIPrefabs>(sceneCtx).has_value()) {
       scnRdrCB.add_feature(ftrPrefabDraw, matMetal);
+    }
+
+    if (rFW.get_interface_id<FIEditor>(sceneCtx).has_value()) {
+      scnRdrCB.add_feature(ftrGodotEditor);
     }
 
     if (rFW.get_interface_id<FIVehicleSpawn>(sceneCtx).has_value()) {
